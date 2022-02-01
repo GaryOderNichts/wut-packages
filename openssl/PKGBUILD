@@ -1,0 +1,54 @@
+pkgname=wiiu-openssl
+pkgver=1.1.1m
+pkgrel=1
+pkgdesc="TLS/SSL and crypto library"
+arch=('any')
+url="https://www.openssl.org/"
+license=("apache")
+makedepends=('wiiu-pkg-config' 'dkp-toolchain-vars')
+depends=('wut')
+options=(!strip libtool staticlibs)
+groups=('wiiu-portlibs')
+
+source=(
+  "${url}/source/openssl-${pkgver}.tar.gz"
+  "openssl-${pkgver}.patch"
+)
+
+sha256sums=(
+  'f89199be8b23ca45fc7cb9f1d8d3ee67312318286ad030f5316aca6462db6c96'
+  '7d842e2f55bd52d38d35c625433d42f12c934756c7cf7db9b2d775d23b14d00f'
+)
+
+build() {
+  cd openssl-$pkgver
+
+  source ${DEVKITPRO}/wiiuvars.sh
+
+  patch -p1 -i $srcdir/openssl-${pkgver}.patch
+
+  ./Configure wiiu \
+  no-threads no-shared no-asm no-ui-console no-unit-test no-tests no-buildtest-c++ no-external-tests no-autoload-config \
+  --with-rand-seed=os -static
+
+  make build_generated
+  make libssl.a libcrypto.a
+}
+
+package() {
+  cd openssl-$pkgver
+
+  source /opt/devkitpro/wiiuvars.sh
+
+  install -Dm644 "libcrypto.a" "${pkgdir}/${PORTLIBS_PREFIX}/lib/libcrypto.a"
+  install -Dm644 "libssl.a" "${pkgdir}/${PORTLIBS_PREFIX}/lib/libssl.a"
+
+  mkdir -p "${pkgdir}/${PORTLIBS_PREFIX}/include/openssl/"
+  install -Dm644 include/openssl/*.h "${pkgdir}/${PORTLIBS_PREFIX}/include/openssl/"
+
+  mkdir -p "${pkgdir}/${PORTLIBS_PREFIX}/include/crypto/"
+  install -Dm644 include/crypto/*.h "${pkgdir}/${PORTLIBS_PREFIX}/include/crypto/"
+
+  # License
+  install -Dm644 LICENSE "${pkgdir}/${PORTLIBS_PREFIX}/licenses/${pkgname}/LICENSE"
+}

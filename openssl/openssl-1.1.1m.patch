@@ -1,0 +1,91 @@
+diff --git a/Configurations/10-main.conf b/Configurations/10-main.conf
+index 61c6689..efe686a 100644
+--- a/Configurations/10-main.conf
++++ b/Configurations/10-main.conf
+@@ -627,6 +627,27 @@ my %targets = (
+         shared_extension => ".so",
+     },
+ 
++### Wii U target
++    "wiiu" => {
++        inherit_from     => [ "BASE_unix" ],
++        CC               => "$ENV{DEVKITPPC}/bin/powerpc-eabi-gcc",
++        CXX              => "$ENV{DEVKITPPC}/bin/powerpc-eabi-g++",
++        AR               => "$ENV{DEVKITPPC}/bin/powerpc-eabi-ar",
++        CFLAGS           => picker(default => "-Wall",
++                                   debug   => "-O0 -g",
++                                   release => "-O3"),
++        CXXFLAGS         => picker(default => "-Wall",
++                                   debug   => "-O0 -g",
++                                   release => "-O3"),
++        LDFLAGS          => "-L$ENV{DEVKITPRO}/wut/lib",
++        cflags           => add("-D__WIIU__ -D__WUT__"),
++        cxxflags         => add("-std=c++11"),
++        lib_cppflags     => "-DOPENSSL_USE_NODELETE -DB_ENDIAN -I$ENV{DEVKITPRO}/wut/include -DNO_SYS_UN_H -DNO_SYSLOG",
++        ex_libs          => add("-lwut"),
++        bn_ops           => "BN_LLONG RC4_CHAR",
++        asm_arch         => 'ppc32',
++    },
++
+ ####
+ #### Variety of LINUX:-)
+ ####
+diff --git a/crypto/rand/rand_unix.c b/crypto/rand/rand_unix.c
+index 0f45251..d303e8e 100644
+--- a/crypto/rand/rand_unix.c
++++ b/crypto/rand/rand_unix.c
+@@ -202,6 +202,41 @@ void rand_pool_keep_random_devices_open(int keep)
+ {
+ }
+ 
++# elif defined(__WIIU__)
++
++#include <coreinit/time.h>
++
++size_t rand_pool_acquire_entropy(RAND_POOL *pool)
++{
++    int i;
++    size_t bytes_needed;
++    unsigned char v;
++
++    bytes_needed = rand_pool_bytes_needed(pool, 4 /*entropy_factor*/);
++
++    for (i = 0; i < bytes_needed; i++) {
++        srand(OSGetSystemTick());
++        v = rand() & 0xff;
++
++        rand_pool_add(pool, &v, sizeof(v), 2);
++    }
++
++    return rand_pool_entropy_available(pool);
++}
++
++int rand_pool_init(void)
++{
++    return 1;
++}
++
++void rand_pool_cleanup(void)
++{
++}
++
++void rand_pool_keep_random_devices_open(int keep)
++{
++}
++
+ # else
+ 
+ #  if defined(OPENSSL_RAND_SEED_EGD) && \
+diff --git a/crypto/uid.c b/crypto/uid.c
+index a9eae36..4a81d98 100644
+--- a/crypto/uid.c
++++ b/crypto/uid.c
+@@ -10,7 +10,7 @@
+ #include <openssl/crypto.h>
+ #include <openssl/opensslconf.h>
+ 
+-#if defined(OPENSSL_SYS_WIN32) || defined(OPENSSL_SYS_VXWORKS) || defined(OPENSSL_SYS_UEFI)
++#if defined(OPENSSL_SYS_WIN32) || defined(OPENSSL_SYS_VXWORKS) || defined(OPENSSL_SYS_UEFI) || defined(__WIIU__)
+ 
+ int OPENSSL_issetugid(void)
+ {
